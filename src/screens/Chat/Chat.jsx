@@ -1,87 +1,138 @@
-import './Chat.css'
-import '../../styles/variables.css'
+import { useState } from "react";
+import ChatList from "./ChatList";
+import ChatView from "./ChatView";
+import CreateChat from "./CreateChat";
+import "./chat.css";
 
-const Chat = () => {
+export default function Chat() {
+    const [chats, setChats] = useState([]);
+    const [activeChatId, setActiveChatId] = useState(null);
+    const [mode, setMode] = useState("list");
+    // list | chat | create-chat | create-group
+
+    const activeChat = chats.find(c => c.id === activeChatId);
+
+    // ======================
+    // DELIVERED -> READ
+    // ======================
+    const markAsRead = () => {
+        if (!activeChat) return;
+
+        let hasUpdates = false;
+
+        const updatedMessages = activeChat.messages.map(msg => {
+            if (msg.fromMe && msg.status === "delivered") {
+                hasUpdates = true;
+                return { ...msg, status: "read" };
+            }
+            return msg;
+        });
+
+        if (!hasUpdates) return;
+
+        setChats(prev =>
+            prev.map(chat =>
+                chat.id === activeChat.id
+                    ? { ...chat, messages: updatedMessages }
+                    : chat
+            )
+        );
+    };
+
+    // ======================
+    // CREATE CHAT / GROUP
+    // ======================
+    const createChat = (title, type) => {
+        const newChat = {
+            id: Date.now().toString(),
+            title,
+            type,
+            messages: []
+        };
+
+        setChats(prev => [...prev, newChat]);
+        setActiveChatId(newChat.id);
+        setMode("chat");
+    };
+
+    // ======================
+    // SEND MESSAGE
+    // ======================
+    const sendMessage = (text) => {
+    if (!activeChat || !text.trim()) return;
+
+    const messageId = Date.now();
+
+    const newMessage = {
+        id: messageId,
+        text,
+        fromMe: true,
+        status: "sent"
+    };
+
+    setChats(prev =>
+        prev.map(chat =>
+            chat.id === activeChat.id
+                ? { ...chat, messages: [...chat.messages, newMessage] }
+                : chat
+        )
+    );
+
+    // ⏱ доставлено
+    setTimeout(() => {
+        setChats(prev =>
+            prev.map(chat =>
+                chat.id === activeChat.id
+                    ? {
+                        ...chat,
+                        messages: chat.messages.map(msg =>
+                            msg.id === messageId
+                                ? { ...msg, status: "delivered" }
+                                : msg
+                        )
+                    }
+                    : chat
+                )
+            );
+        }, 800);
+    };
+
     return (
-        <>
-            <section className="screen card chats" data-screen="chat">
+        <div className="chat-layout">
+            <ChatList
+                chats={chats}
+                activeChatId={activeChatId}
+                onSelect={(id) => {
+                    setActiveChatId(id);
+                    setMode("chat");
+                }}
+                onNewChat={() => setMode("create-chat")}
+                onNewGroup={() => setMode("create-group")}
+            />
 
-                <div className="header">
-                    <span>Казачий круг</span>
-                </div>
+            {mode === "create-chat" && (
+                <CreateChat
+                    title="Новый чат"
+                    onCreate={(name) => createChat(name, "private")}
+                    onCancel={() => setMode("list")}
+                />
+            )}
 
-                <div className="dialogs">
-                <aside className="sidebar-nav">
-                    <div className="nav-top">
-                    <button className="nav-icon active" data-mode="chats">💬</button>
-                    <button className="nav-icon" data-mode="groups">👥</button>
-                    <button className="nav-icon" data-mode="calls">📞</button>
-                    </div>
-                    <div className="nav-bottom">
-                    <button className="nav-icon">?</button>
-                    <button className="nav-icon" data-go="settings">⚙</button>
-                    </div>
-                </aside>
+            {mode === "create-group" && (
+                <CreateChat
+                    title="Новая группа"
+                    onCreate={(name) => createChat(name, "group")}
+                    onCancel={() => setMode("list")}
+                />
+            )}
 
-                <section className="sidebar-list">
-
-                    <div className="list-actions">
-                    <button className="list-action">Новый чат</button>
-                    <button className="list-action">Создать группу</button>
-                    </div>
-
-                    <div className="chat-list">
-
-                    <div className="chat-item active" data-type="chat">
-                        <div className="chat-title">Атаман</div>
-                    </div>
-
-                    <div className="chat-item" data-type="group">
-                        <div className="chat-title">Круг</div>
-                    </div>
-
-                    </div>
-
-                </section>
-
-                <main className="chat-main">
-
-                    <header className="chat-header">
-                    <h2 className="title">Атаман</h2>
-                    <div className="chat-actions">
-                        <span>личный чат</span>
-                        <div className="chat-settings">
-                        <button>📞</button>
-                        <button>⋯</button>
-                        </div>
-                    </div>
-                    </header>
-
-                    <div className="chat-messages">
-                    <div className="message incoming">
-                        <div className="bubble">Собрание сегодня в 20:00</div>
-                    </div>
-
-                    <div className="message outgoing">
-                        <div className="bubble">Принял</div>
-                        <span className="message-status sent">✓</span>
-
-                        <span className="message-status delivered">✓✓</span>
-
-                        <span className="message-status read">✓✓</span>
-                    </div>
-                    </div>
-
-                    <footer className="chat-input">
-                    <input type="text" placeholder="Сообщение..." />
-                    <button className="send">➤</button>
-                    </footer>
-
-                </main>
-                </div>
-            </section>
-        </>
-    )
+            {mode === "chat" && activeChat && (
+                <ChatView
+                    chat={activeChat}
+                    onSend={sendMessage}
+                    onRead={markAsRead}
+                />
+            )}
+        </div>
+    );
 }
-
-export default Chat
