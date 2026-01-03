@@ -1,138 +1,186 @@
-import { useState } from "react";
+import { useReducer } from "react";
 import ChatList from "./ChatList";
 import ChatView from "./ChatView";
 import CreateChat from "./CreateChat";
+import { chatReducer, initialState } from "./chatReducer";
 import "./chat.css";
 
+
 export default function Chat() {
-    const [chats, setChats] = useState([]);
-    const [activeChatId, setActiveChatId] = useState(null);
-    const [mode, setMode] = useState("list");
-    // list | chat | create-chat | create-group
 
-    const activeChat = chats.find(c => c.id === activeChatId);
-
-    // ======================
-    // DELIVERED -> READ
-    // ======================
-    const markAsRead = () => {
-        if (!activeChat) return;
-
-        let hasUpdates = false;
-
-        const updatedMessages = activeChat.messages.map(msg => {
-            if (msg.fromMe && msg.status === "delivered") {
-                hasUpdates = true;
-                return { ...msg, status: "read" };
-            }
-            return msg;
-        });
-
-        if (!hasUpdates) return;
-
-        setChats(prev =>
-            prev.map(chat =>
-                chat.id === activeChat.id
-                    ? { ...chat, messages: updatedMessages }
-                    : chat
-            )
-        );
+    const CURRENT_USER = {
+        id: "user-1",
+        name: "Казак"
     };
 
-    // ======================
-    // CREATE CHAT / GROUP
-    // ======================
-    const createChat = (title, type) => {
-        const newChat = {
-            id: Date.now().toString(),
-            title,
-            type,
-            messages: []
-        };
+    const [state, dispatch] = useReducer(chatReducer, initialState);
 
-        setChats(prev => [...prev, newChat]);
-        setActiveChatId(newChat.id);
-        setMode("chat");
-    };
-
-    // ======================
-    // SEND MESSAGE
-    // ======================
-    const sendMessage = (text) => {
-    if (!activeChat || !text.trim()) return;
-
-    const messageId = Date.now();
-
-    const newMessage = {
-        id: messageId,
-        text,
-        fromMe: true,
-        status: "sent"
-    };
-
-    setChats(prev =>
-        prev.map(chat =>
-            chat.id === activeChat.id
-                ? { ...chat, messages: [...chat.messages, newMessage] }
-                : chat
-        )
+    const activeChat = state.chats.find(
+        chat => chat.id === state.activeChatId
     );
 
-    // ⏱ доставлено
-    setTimeout(() => {
-        setChats(prev =>
-            prev.map(chat =>
-                chat.id === activeChat.id
-                    ? {
-                        ...chat,
-                        messages: chat.messages.map(msg =>
-                            msg.id === messageId
-                                ? { ...msg, status: "delivered" }
-                                : msg
-                        )
-                    }
-                    : chat
-                )
-            );
+    const sendMessage = (text) => {
+        const messageId = crypto.randomUUID();
+
+        dispatch({
+            type: "SEND_MESSAGE",
+            payload: { text, messageId, sender: CURRENT_USER }
+        });
+
+        // delivered
+        setTimeout(() => {
+            dispatch({
+                type: "UPDATE_MESSAGE_STATUS",
+                payload: {
+                    chatId: state.activeChatId,
+                    messageId,
+                    status: "delivered"
+                }
+            });
         }, 800);
+
+        // read
+        setTimeout(() => {
+            dispatch({
+                type: "UPDATE_MESSAGE_STATUS",
+                payload: {
+                    chatId: state.activeChatId,
+                    messageId,
+                    status: "read"
+                }
+            });
+        }, 1500);
     };
+
+
 
     return (
         <div className="chat-layout">
+
             <ChatList
-                chats={chats}
-                activeChatId={activeChatId}
-                onSelect={(id) => {
-                    setActiveChatId(id);
-                    setMode("chat");
-                }}
-                onNewChat={() => setMode("create-chat")}
-                onNewGroup={() => setMode("create-group")}
+                chats={state.chats}
+                activeChatId={state.activeChatId}
+                onSelect={(id) =>
+                    dispatch({ type: "SET_ACTIVE_CHAT", payload: id })
+                }
+                onNewChat={() =>
+                    dispatch({ type: "SET_MODE", payload: "create-chat" })
+                }
+                onNewGroup={() =>
+                    dispatch({ type: "SET_MODE", payload: "create-group" })
+                }
+                onTogglePin={(chatId) =>
+                    dispatch({
+                        type: "TOGGLE_PIN_CHAT",
+                        payload: chatId
+                    })
+                }
+                onToggleMute={(chatId) =>
+                    dispatch({
+                        type: "TOGGLE_MUTE_CHAT",
+                        payload: chatId
+                    })
+                }
             />
 
-            {mode === "create-chat" && (
+            <ChatView
+                chat={activeChat}
+                onSend={sendMessage}
+                onDraftChange={(text) =>
+                    dispatch({
+                        type: "SET_DRAFT",
+                        payload: {
+                            chatId: activeChat.id,
+                            text
+                        }
+                    })
+                }
+                onTyping={() =>
+                    dispatch({
+                        type: "SET_TYPING",
+                        payload: {
+                            chatId: activeChat.id,
+                            user: CURRENT_USER
+                        }
+                    })
+                }
+                onStopTyping={() =>
+                    dispatch({
+                        type: "CLEAR_TYPING",
+                        payload: {
+                            chatId: activeChat.id,
+                            userId: CURRENT_USER.id
+                        }
+                    })
+                }
+            />
+
+            {state.mode === "create-chat" && (
                 <CreateChat
                     title="Новый чат"
-                    onCreate={(name) => createChat(name, "private")}
-                    onCancel={() => setMode("list")}
+                    onCreate={(title) =>
+                        dispatch({
+                            type: "CREATE_CHAT",
+                            payload: { title, type: "private" }
+                        })
+                    }
+                    onCancel={() =>
+                        dispatch({ type: "SET_MODE", payload: "list" })
+                    }
                 />
             )}
 
-            {mode === "create-group" && (
+            {state.mode === "create-group" && (
                 <CreateChat
                     title="Новая группа"
-                    onCreate={(name) => createChat(name, "group")}
-                    onCancel={() => setMode("list")}
+                    onCreate={(title) =>
+                        dispatch({
+                            type: "CREATE_CHAT",
+                            payload: { title, type: "group" }
+                        })
+                    }
+                    onCancel={() =>
+                        dispatch({ type: "SET_MODE", payload: "list" })
+                    }
                 />
             )}
 
-            {mode === "chat" && activeChat && (
+            {state.mode === "chat" && activeChat && (
                 <ChatView
                     chat={activeChat}
                     onSend={sendMessage}
-                    onRead={markAsRead}
+                    onReceive={(text) =>
+                        dispatch({
+                            type: "RECEIVE_MESSAGE",
+                            payload: {
+                                chatId: activeChat.id,
+                                text,
+                                sender: {
+                                    id: "user-2",
+                                    name: activeChat.type === "group"
+                                        ? "Атаман"
+                                        : activeChat.title
+                                }
+                            }
+                        })
+                    }
                 />
             )}
+            <button
+                onClick={() =>
+                    dispatch({
+                        type: "RECEIVE_MESSAGE",
+                        payload: {
+                            chatId: activeChat.id,
+                            text: "Привет! Я собеседник",
+                            sender: { id: "u2", name: "Казак" }
+                        }
+                    })
+                }
+            >
+                + Входящее
+            </button>
+
         </div>
     );
 }

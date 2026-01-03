@@ -1,55 +1,77 @@
-import { useState, useEffect } from "react";
+import MessageInput from "./MessageInput";
 
-export default function ChatView({ chat, onSend, onRead }) {
-    const [text, setText] = useState("");
+export default function ChatView({
+    chat,
+    onSend,
+    onDraftChange,
+    onTyping,
+    onStopTyping
+}) {
+    // ОБЯЗАТЕЛЬНАЯ защита
+    if (!chat) {
+        return (
+            <main className="chat-view chat-empty">
+                <div className="chat-placeholder">
+                    Выберите чат
+                </div>
+            </main>
+        );
+    }
 
-    // помечаем сообщения как прочитанные при открытии чата
-    useEffect(() => {
-        if (onRead) {
-            onRead();
-        }
-    }, [chat.id]);
-
-    const handleSend = () => {
-        if (!text.trim()) return;
-        onSend(text);
-        setText("");
-    };
+    const {
+        title,
+        typingUsers = [],
+        messages = [],
+        type
+    } = chat;
 
     return (
         <main className="chat-view">
 
             <header className="chat-header">
-                <h2>{chat.title}</h2>
-                <span>{chat.type === "group" ? "Группа" : "Личный чат"}</span>
+                <h2>{title}</h2>
+
+                {typingUsers.length > 0 && (
+                    <span className="typing">
+                        {typingUsers.map(u => u.name).join(", ")} печатает…
+                    </span>
+                )}
             </header>
 
             <div className="messages">
-                {chat.messages.map(msg => (
+                {messages.map(msg => (
                     <div
                         key={msg.id}
                         className={`message ${msg.fromMe ? "outgoing" : "incoming"}`}
                     >
-                        <span className="bubble">{msg.text}</span>
+                        {!msg.fromMe && type === "group" && (
+                            <div className="message-author">
+                                {msg.senderName}
+                            </div>
+                        )}
 
-                        {msg.fromMe && (
-                            <span className={`status ${msg.status}`}>
+                        <div className="message-text">
+                            {msg.text}
+                        </div>
+
+                        {msg.fromMe && msg.status && (
+                            <div className={`message-status ${msg.status}`}>
                                 {msg.status === "sent" && "✓"}
-                                {(msg.status === "delivered" || msg.status === "read") && "✓✓"}
-                            </span>
+                                {msg.status === "delivered" && "✓✓"}
+                                {msg.status === "read" && "✓✓"}
+                            </div>
                         )}
                     </div>
                 ))}
             </div>
 
-            <footer className="chat-input">
-                <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Сообщение..."
-                />
-                <button onClick={handleSend}>➤</button>
-            </footer>
+            <MessageInput
+                chat={chat}
+                onSend={onSend}
+                onDraftChange={onDraftChange}
+                onTyping={onTyping}
+                onStopTyping={onStopTyping}
+            />
 
         </main>
     );

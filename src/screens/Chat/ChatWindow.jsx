@@ -32,6 +32,7 @@ export default function ChatWindow() {
             <footer className="chat-input">
                 <input type="text" placeholder="Сообщение..." />
                 <button>➤</button>
+                
             </footer>
 
         </section>
