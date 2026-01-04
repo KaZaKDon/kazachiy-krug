@@ -1,13 +1,12 @@
-import { useReducer } from "react";
+import { useReducer, useEffect } from "react";
 import ChatList from "./ChatList";
 import ChatView from "./ChatView";
 import CreateChat from "./CreateChat";
 import { chatReducer, initialState } from "./chatReducer";
 import "./chat.css";
-
+import { socket } from "../../shared/socket";
 
 export default function Chat() {
-
     const CURRENT_USER = {
         id: "user-1",
         name: "Казак"
@@ -19,44 +18,79 @@ export default function Chat() {
         chat => chat.id === state.activeChatId
     );
 
-    const sendMessage = (text) => {
-        const messageId = crypto.randomUUID();
+    /* =====================
+       JOIN CHAT
+    ===================== */
+    useEffect(() => {
+        if (!state.activeChatId) return;
 
-        dispatch({
-            type: "SEND_MESSAGE",
-            payload: { text, messageId, sender: CURRENT_USER }
+        socket.emit("join:chat", { chatId: state.activeChatId });
+
+    }, [state.activeChatId]);
+
+    /* =====================
+       RECEIVE MESSAGES
+    ===================== */
+    useEffect(() => {
+        socket.on("message:new", (message) => {
+            dispatch({
+                type: "RECEIVE_MESSAGE",
+                payload: {
+                    chatId: message.chatId,
+                    text: message.text,
+                    sender: message.sender
+                }
+            });
         });
 
-        // delivered
-        setTimeout(() => {
-            dispatch({
-                type: "UPDATE_MESSAGE_STATUS",
-                payload: {
-                    chatId: state.activeChatId,
-                    messageId,
-                    status: "delivered"
-                }
-            });
-        }, 800);
+        return () => {
+            socket.off("message:new");
+        };
+    }, []);
 
-        // read
-        setTimeout(() => {
+    /* =====================
+       TYPING
+    ===================== */
+    useEffect(() => {
+        socket.on("typing:start", ({ chatId, userId }) => {
             dispatch({
-                type: "UPDATE_MESSAGE_STATUS",
+                type: "SET_TYPING",
                 payload: {
-                    chatId: state.activeChatId,
-                    messageId,
-                    status: "read"
+                    chatId,
+                    user: { id: userId, name: "Собеседник" }
                 }
             });
-        }, 1500);
+        });
+
+        socket.on("typing:stop", ({ chatId, userId }) => {
+            dispatch({
+                type: "CLEAR_TYPING",
+                payload: {
+                    chatId,
+                    userId
+                }
+            });
+        });
+
+        return () => {
+            socket.off("typing:start");
+            socket.off("typing:stop");
+        };
+    }, []);
+
+    /* =====================
+       SEND MESSAGE
+    ===================== */
+    const sendMessage = (text) => {
+        socket.emit("message:send", {
+            chatId: state.activeChatId,
+            text,
+            sender: CURRENT_USER
+        });
     };
-
-
 
     return (
         <div className="chat-layout">
-
             <ChatList
                 chats={state.chats}
                 activeChatId={state.activeChatId}
@@ -70,50 +104,38 @@ export default function Chat() {
                     dispatch({ type: "SET_MODE", payload: "create-group" })
                 }
                 onTogglePin={(chatId) =>
-                    dispatch({
-                        type: "TOGGLE_PIN_CHAT",
-                        payload: chatId
-                    })
+                    dispatch({ type: "TOGGLE_PIN_CHAT", payload: chatId })
                 }
                 onToggleMute={(chatId) =>
-                    dispatch({
-                        type: "TOGGLE_MUTE_CHAT",
-                        payload: chatId
-                    })
+                    dispatch({ type: "TOGGLE_MUTE_CHAT", payload: chatId })
                 }
             />
 
-            <ChatView
-                chat={activeChat}
-                onSend={sendMessage}
-                onDraftChange={(text) =>
-                    dispatch({
-                        type: "SET_DRAFT",
-                        payload: {
-                            chatId: activeChat.id,
-                            text
-                        }
-                    })
-                }
-                onTyping={() =>
-                    dispatch({
-                        type: "SET_TYPING",
-                        payload: {
-                            chatId: activeChat.id,
-                            user: CURRENT_USER
-                        }
-                    })
-                }
-                onStopTyping={() =>
-                    dispatch({
-                        type: "CLEAR_TYPING",
-                        payload: {
-                            chatId: activeChat.id,
-                            userId: CURRENT_USER.id
-                        }
-                    })
-                }
-            />
+            {activeChat && (
+                <ChatView
+                    chat={activeChat}
+                    onSend={sendMessage}
+                    onDraftChange={(text) =>
+                        dispatch({
+                            type: "SET_DRAFT",
+                            payload: {
+                                chatId: activeChat.id,
+                                text
+                            }
+                        })
+                    }
+                    onTyping={() =>
+                        socket.emit("typing:start", {
+                            chatId: activeChat.id
+                        })
+                    }
+                    onStopTyping={() =>
+                        socket.emit("typing:stop", {
+                            chatId: activeChat.id
+                        })
+                    }
+                />
+            )}
 
             {state.mode === "create-chat" && (
                 <CreateChat
@@ -144,43 +166,6 @@ export default function Chat() {
                     }
                 />
             )}
-
-            {state.mode === "chat" && activeChat && (
-                <ChatView
-                    chat={activeChat}
-                    onSend={sendMessage}
-                    onReceive={(text) =>
-                        dispatch({
-                            type: "RECEIVE_MESSAGE",
-                            payload: {
-                                chatId: activeChat.id,
-                                text,
-                                sender: {
-                                    id: "user-2",
-                                    name: activeChat.type === "group"
-                                        ? "Атаман"
-                                        : activeChat.title
-                                }
-                            }
-                        })
-                    }
-                />
-            )}
-            <button
-                onClick={() =>
-                    dispatch({
-                        type: "RECEIVE_MESSAGE",
-                        payload: {
-                            chatId: activeChat.id,
-                            text: "Привет! Я собеседник",
-                            sender: { id: "u2", name: "Казак" }
-                        }
-                    })
-                }
-            >
-                + Входящее
-            </button>
-
         </div>
     );
 }

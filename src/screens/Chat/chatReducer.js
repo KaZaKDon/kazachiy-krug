@@ -70,6 +70,9 @@ export function chatReducer(state, action) {
             };
 
         case "RECEIVE_MESSAGE":
+            if (!action.payload.sender) {
+                return state;
+}
             return {
                 ...state,
                 chats: state.chats.map(chat =>
@@ -157,22 +160,27 @@ export function chatReducer(state, action) {
 
         case "SET_TYPING": {
             const { chatId, user } = action.payload;
-                return {
-                    ...state,
-                    chats: state.chats.map(chat =>
-                        chat.id === chatId
-                            ? {
-                                ...chat,
-                                typingUsers: chat.typingUsers.some(
-                                    u => u.id === user.id
-                                )
-                                    ? chat.typingUsers
-                                    : [...chat.typingUsers, user]
-                            }
-                            : chat
-                    )
-                };
+
+            if (!chatId || !user || !user.id) {
+                return state;
             }
+
+            return {
+                ...state,
+                chats: state.chats.map(chat =>
+                    chat.id === chatId
+                        ? {
+                            ...chat,
+                            typingUsers: chat.typingUsers.some(
+                                u => u.id === user.id
+                            )
+                                ? chat.typingUsers
+                                : [...chat.typingUsers, user]
+                        }
+                        : chat
+                )
+            };
+        }
 
         case "CLEAR_TYPING":
             return {
