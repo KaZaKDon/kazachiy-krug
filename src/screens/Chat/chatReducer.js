@@ -1,186 +1,93 @@
 export const initialState = {
-    chats: [],
-    activeChatId: null,
-    mode: "list" // list | chat | create-chat | create-group
+    chats: [
+        {
+            id: "room-1",
+            title: "Общий чат",
+            type: "group",
+            messages: [],
+            draft: "",
+            typingUsers: [],
+            unread: 0,
+            pinned: false,
+            muted: false
+        }
+    ],
+    activeChatId: "room-1",
+    mode: "list"
 };
 
 export function chatReducer(state, action) {
     switch (action.type) {
 
-        case "CREATE_CHAT": {
+        case "UPSERT_CHAT": {
+            const chat = action.payload;
 
-            const newChat = {
-                id: crypto.randomUUID(),
-                title: action.payload.title,
-                type: action.payload.type,
-                messages: [],
-                unread: 0,
-                muted: false,
-                pinned: false,
-                draft: "",
-                typingUsers: [],
-                lastMessage: null,
-                lastMessageAt: null
-            };
+            const exists = state.chats.some(c => c.id === chat.id);
 
-            return {
-                ...state,
-                chats: [...state.chats, newChat],
-                activeChatId: newChat.id,
-                mode: "chat"
-            };
+            return exists
+                ? state
+                : {
+                    ...state,
+                    chats: [...state.chats, chat]
+                };
         }
 
         case "SET_ACTIVE_CHAT":
             return {
                 ...state,
-                activeChatId: action.payload,
-                mode: "chat",
-                chats: state.chats.map(chat =>
-                    chat.id === action.payload
-                        ? { ...chat, unread: 0 }
-                        : chat
-                )
+                activeChatId: action.payload
             };
 
-        case "SEND_MESSAGE":
-            return {
-                ...state,
-                chats: state.chats.map(chat =>
-                    chat.id === state.activeChatId
-                        ? {
-                            ...chat,
-                            messages: [
-                                ...chat.messages,
-                                {
-                                    id: action.payload.messageId,
-                                    text: action.payload.text,
-                                    senderId: action.payload.sender.id,
-                                    senderName: action.payload.sender.name,
-                                    fromMe: true,
-                                    status: "sent",
-                                    createdAt: Date.now()
-                                }
-                            ],
-                            lastMessage: action.payload.text,
-                            lastMessageAt: Date.now()
-                        }
-                        : chat
-                )
-            };
-
-        case "RECEIVE_MESSAGE":
-            if (!action.payload.sender) {
-                return state;
-}
+        case "SET_DRAFT":
             return {
                 ...state,
                 chats: state.chats.map(chat =>
                     chat.id === action.payload.chatId
-                        ? {
-                            ...chat,
-                            messages: [
-                                ...chat.messages,
-                                {
-                                    id: crypto.randomUUID(),
-                                    text: action.payload.text,
-                                    senderId: action.payload.sender.id,
-                                    senderName: action.payload.sender.name,
-                                    fromMe: false,
-                                    createdAt: Date.now()
-                                }
-                            ],
-                            lastMessage: action.payload.text,
-                            lastMessageAt: Date.now(),
-                            unread:
-                                chat.id === state.activeChatId || chat.muted
-                                    ? chat.unread
-                                    : chat.unread + 1
-                        }
+                        ? { ...chat, draft: action.payload.text }
                         : chat
                 )
             };
 
-        case "SET_MODE":
-            return { ...state, mode: action.payload };
-
-        case "UPDATE_MESSAGE_STATUS":
-            return {
-                ...state,
-                chats: state.chats.map(chat =>
-                    chat.id === action.payload.chatId
-                        ? {
-                            ...chat,
-                            messages: chat.messages.map(msg =>
-                                msg.id === action.payload.messageId
-                                    ? { ...msg, status: action.payload.status }
-                                    : msg
-                            )
-                        }
-                        : chat
-                )
-            };
-        case "TOGGLE_PIN_CHAT":
-        return {
-            ...state,
-            chats: state.chats.map(chat =>
-                chat.id === action.payload
-                    ? { ...chat, pinned: !chat.pinned }
-                    : chat
-            )
-        };
-    case "TOGGLE_MUTE_CHAT":
-        return {
-            ...state,
-            chats: state.chats.map(chat =>
-                chat.id === action.payload
-                    ? { ...chat, muted: !chat.muted }
-                    : chat
-            )
-        };
-    case "SET_DRAFT":
-        return {
-            ...state,
-            chats: state.chats.map(chat =>
-                chat.id === action.payload.chatId
-                    ? { ...chat, draft: action.payload.text }
-                    : chat
-            )
-        };
-
-    case "CLEAR_DRAFT":
-        return {
-            ...state,
-            chats: state.chats.map(chat =>
-                chat.id === action.payload
-                    ? { ...chat, draft: "" }
-                    : chat
-            )
-        };
-
-        case "SET_TYPING": {
-            const { chatId, user } = action.payload;
-
-            if (!chatId || !user || !user.id) {
-                return state;
-            }
+        case "RECEIVE_MESSAGE": {
+            const { chatId, message } = action.payload;
 
             return {
                 ...state,
-                chats: state.chats.map(chat =>
-                    chat.id === chatId
-                        ? {
-                            ...chat,
-                            typingUsers: chat.typingUsers.some(
-                                u => u.id === user.id
-                            )
-                                ? chat.typingUsers
-                                : [...chat.typingUsers, user]
-                        }
-                        : chat
-                )
+                chats: state.chats.map(chat => {
+                    if (chat.id !== chatId) return chat;
+
+                    // 🔒 ЗАЩИТА ОТ ДУБЛЕЙ
+                    if (chat.messages.some(m => m.id === message.id)) {
+                        return chat;
+                    }
+
+                    return {
+                        ...chat,
+                        messages: [...chat.messages, message],
+                        unread: message.fromMe ? chat.unread : chat.unread + 1
+                    };
+                })
             };
         }
+
+        case "SET_TYPING":
+            return {
+                ...state,
+                chats: state.chats.map(chat => {
+                    if (chat.id !== action.payload.chatId) return chat;
+
+                    const exists = chat.typingUsers.some(
+                        u => u.id === action.payload.user.id
+                    );
+
+                    return exists
+                        ? chat
+                        : {
+                            ...chat,
+                            typingUsers: [...chat.typingUsers, action.payload.user]
+                        };
+                })
+            };
 
         case "CLEAR_TYPING":
             return {
@@ -195,6 +102,12 @@ export function chatReducer(state, action) {
                         }
                         : chat
                 )
+            };
+
+        case "SET_MODE":
+            return {
+                ...state,
+                mode: action.payload
             };
 
         default:

@@ -46,7 +46,7 @@ export default function ChatView({
                     >
                         {!msg.fromMe && type === "group" && (
                             <div className="message-author">
-                                {msg.senderName}
+                                {msg.sender.name}
                             </div>
                         )}
 

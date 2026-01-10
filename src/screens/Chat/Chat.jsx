@@ -1,10 +1,12 @@
 import { useReducer, useEffect } from "react";
 import ChatList from "./ChatList";
 import ChatView from "./ChatView";
-import CreateChat from "./CreateChat";
 import { chatReducer, initialState } from "./chatReducer";
-import "./chat.css";
+import { useChatSocket } from "./hooks/useChatSocket";
 import { socket } from "../../shared/socket";
+import "./chat.css";
+
+const FIXED_CHAT_ID = "room-1";
 
 export default function Chat() {
     const CURRENT_USER = {
@@ -14,158 +16,99 @@ export default function Chat() {
 
     const [state, dispatch] = useReducer(chatReducer, initialState);
 
+    // создаём чат ОДИН раз
+    useEffect(() => {
+        if (state.chats.length === 0) {
+            dispatch({
+                type: "CREATE_CHAT",
+                payload: {
+                    id: FIXED_CHAT_ID,
+                    title: "Общий чат",
+                    type: "group"
+                }
+            });
+        }
+    }, [state.chats.length]);
+
     const activeChat = state.chats.find(
         chat => chat.id === state.activeChatId
     );
 
-    /* =====================
-       JOIN CHAT
-    ===================== */
-    useEffect(() => {
-        if (!state.activeChatId) return;
+    useChatSocket(dispatch, CURRENT_USER);
 
-        socket.emit("join:chat", { chatId: state.activeChatId });
-
-    }, [state.activeChatId]);
-
-    /* =====================
-       RECEIVE MESSAGES
-    ===================== */
-    useEffect(() => {
-        socket.on("message:new", (message) => {
-            dispatch({
-                type: "RECEIVE_MESSAGE",
-                payload: {
-                    chatId: message.chatId,
-                    text: message.text,
-                    sender: message.sender
-                }
-            });
-        });
-
-        return () => {
-            socket.off("message:new");
-        };
-    }, []);
-
-    /* =====================
-       TYPING
-    ===================== */
-    useEffect(() => {
-        socket.on("typing:start", ({ chatId, userId }) => {
-            dispatch({
-                type: "SET_TYPING",
-                payload: {
-                    chatId,
-                    user: { id: userId, name: "Собеседник" }
-                }
-            });
-        });
-
-        socket.on("typing:stop", ({ chatId, userId }) => {
-            dispatch({
-                type: "CLEAR_TYPING",
-                payload: {
-                    chatId,
-                    userId
-                }
-            });
-        });
-
-        return () => {
-            socket.off("typing:start");
-            socket.off("typing:stop");
-        };
-    }, []);
-
-    /* =====================
-       SEND MESSAGE
-    ===================== */
     const sendMessage = (text) => {
-        socket.emit("message:send", {
-            chatId: state.activeChatId,
+        const messageId = crypto.randomUUID();
+
+        const message = {
+            id: messageId,
+            chatId: FIXED_CHAT_ID,
             text,
-            sender: CURRENT_USER
+            sender: {
+                id: CURRENT_USER.id,
+                name: CURRENT_USER.name
+            }
+        };
+
+        // оптимистичное добавление
+        dispatch({
+            type: "RECEIVE_MESSAGE",
+            payload: {
+                chatId: FIXED_CHAT_ID,
+                message: {
+                    ...message,
+                    fromMe: true,
+                    status: "sent"
+                }
+            }
+        });
+
+        socket.emit("message:send", message);
+    };
+
+    const handleTypingStart = () => {
+        socket.emit("typing:start", {
+            chatId: FIXED_CHAT_ID,
+            userId: CURRENT_USER.id
         });
     };
+
+    const handleTypingStop = () => {
+        socket.emit("typing:stop", {
+            chatId: FIXED_CHAT_ID,
+            userId: CURRENT_USER.id
+        });
+    };
+
+    if (!activeChat) return null;
 
     return (
         <div className="chat-layout">
             <ChatList
                 chats={state.chats}
                 activeChatId={state.activeChatId}
-                onSelect={(id) =>
-                    dispatch({ type: "SET_ACTIVE_CHAT", payload: id })
-                }
-                onNewChat={() =>
-                    dispatch({ type: "SET_MODE", payload: "create-chat" })
-                }
-                onNewGroup={() =>
-                    dispatch({ type: "SET_MODE", payload: "create-group" })
-                }
-                onTogglePin={(chatId) =>
-                    dispatch({ type: "TOGGLE_PIN_CHAT", payload: chatId })
-                }
-                onToggleMute={(chatId) =>
-                    dispatch({ type: "TOGGLE_MUTE_CHAT", payload: chatId })
-                }
+                onSelect={() => {}}
+                onNewChat={() => {}}
+                onNewGroup={() => {}}
+                onTogglePin={() => {}}
+                onToggleMute={() => {}}
             />
 
-            {activeChat && (
-                <ChatView
-                    chat={activeChat}
-                    onSend={sendMessage}
-                    onDraftChange={(text) =>
-                        dispatch({
-                            type: "SET_DRAFT",
-                            payload: {
-                                chatId: activeChat.id,
-                                text
-                            }
-                        })
-                    }
-                    onTyping={() =>
-                        socket.emit("typing:start", {
-                            chatId: activeChat.id
-                        })
-                    }
-                    onStopTyping={() =>
-                        socket.emit("typing:stop", {
-                            chatId: activeChat.id
-                        })
-                    }
-                />
-            )}
-
-            {state.mode === "create-chat" && (
-                <CreateChat
-                    title="Новый чат"
-                    onCreate={(title) =>
-                        dispatch({
-                            type: "CREATE_CHAT",
-                            payload: { title, type: "private" }
-                        })
-                    }
-                    onCancel={() =>
-                        dispatch({ type: "SET_MODE", payload: "list" })
-                    }
-                />
-            )}
-
-            {state.mode === "create-group" && (
-                <CreateChat
-                    title="Новая группа"
-                    onCreate={(title) =>
-                        dispatch({
-                            type: "CREATE_CHAT",
-                            payload: { title, type: "group" }
-                        })
-                    }
-                    onCancel={() =>
-                        dispatch({ type: "SET_MODE", payload: "list" })
-                    }
-                />
-            )}
+            <ChatView
+                chat={activeChat}
+                onSend={sendMessage}
+                onTyping={handleTypingStart}
+                onStopTyping={handleTypingStop}
+                onDraftChange={(text) =>
+                    dispatch({
+                        type: "SET_DRAFT",
+                        payload: {
+                            chatId: FIXED_CHAT_ID,
+                            text
+                        }
+                    })
+                }
+            />
         </div>
     );
 }
+            
