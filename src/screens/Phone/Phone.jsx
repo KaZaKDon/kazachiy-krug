@@ -2,11 +2,14 @@ import './Phone.css'
 import '../../styles/variables.css'
 import img from './icon.jpg';
 import { useNavigate } from "react-router-dom";
+import { useState } from 'react';
 
 export default function Phone() {
     const navigate = useNavigate();
+    const [phone, setPhone] = useState("");
 
     const handleSubmit = () => {
+        localStorage.setItem("phone", phone);
         navigate("/code");
     };
 
@@ -16,13 +19,15 @@ export default function Phone() {
                 <img className="auth-logo" src={img} alt="logo" />
 
                 <h1 className="auth-title">Вход по номеру телефона</h1>
-                <p className="auth-description">
-                    Мы отправим SMS с кодом подтверждения
-                </p>
 
                 <div className="auth-field">
                     <label>Номер телефона</label>
-                    <input type="tel" placeholder="+7 ___ ___ __ __" />
+                    <input
+                        type="tel"
+                        placeholder="+7 ___ ___ __ __"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                    />
                 </div>
 
                 <button className="auth-button" onClick={handleSubmit}>

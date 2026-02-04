@@ -1,114 +1,91 @@
 export const initialState = {
-    chats: [
-        {
-            id: "room-1",
-            title: "Общий чат",
-            type: "group",
+    users: [],
+
+    chats: {
+        /*
+        chatId: {
+            id: chatId,
             messages: [],
-            draft: "",
-            typingUsers: [],
-            unread: 0,
-            pinned: false,
-            muted: false
+            draft: ""
         }
-    ],
-    activeChatId: "room-1",
-    mode: "list"
+        */
+    },
+
+    activeChatUserId: null
 };
+
+function ensureChat(state, chatId) {
+    if (state.chats[chatId]) return state.chats;
+
+    return {
+        ...state.chats,
+        [chatId]: {
+            id: chatId,
+            messages: [],
+            draft: ""
+        }
+    };
+}
 
 export function chatReducer(state, action) {
     switch (action.type) {
 
-        case "UPSERT_CHAT": {
-            const chat = action.payload;
+        // ---------- USERS ----------
+        case "SET_USERS":
+            return {
+                ...state,
+                users: action.payload
+            };
 
-            const exists = state.chats.some(c => c.id === chat.id);
+        // ---------- ACTIVE CHAT ----------
+        case "SET_ACTIVE_CHAT_USER":
+            return {
+                ...state,
+                activeChatUserId: action.payload
+            };
 
-            return exists
-                ? state
-                : {
-                    ...state,
-                    chats: [...state.chats, chat]
-                };
+        // ---------- DRAFT ----------
+        case "SET_DRAFT": {
+            const { chatId, text } = action.payload;
+
+            const chats = ensureChat(state, chatId);
+
+            return {
+                ...state,
+                chats: {
+                    ...chats,
+                    [chatId]: {
+                        ...chats[chatId],
+                        draft: text
+                    }
+                }
+            };
         }
 
-        case "SET_ACTIVE_CHAT":
-            return {
-                ...state,
-                activeChatId: action.payload
-            };
-
-        case "SET_DRAFT":
-            return {
-                ...state,
-                chats: state.chats.map(chat =>
-                    chat.id === action.payload.chatId
-                        ? { ...chat, draft: action.payload.text }
-                        : chat
-                )
-            };
-
+        // ---------- MESSAGES ----------
         case "RECEIVE_MESSAGE": {
             const { chatId, message } = action.payload;
+            if (!chatId || !message?.id) return state;
+
+            const chats = ensureChat(state, chatId);
+            const chat = chats[chatId];
+
+            // защита от дублей
+            if (chat.messages.some(m => m.id === message.id)) {
+                return state;
+            }
 
             return {
                 ...state,
-                chats: state.chats.map(chat => {
-                    if (chat.id !== chatId) return chat;
-
-                    // 🔒 ЗАЩИТА ОТ ДУБЛЕЙ
-                    if (chat.messages.some(m => m.id === message.id)) {
-                        return chat;
-                    }
-
-                    return {
+                chats: {
+                    ...chats,
+                    [chatId]: {
                         ...chat,
-                        messages: [...chat.messages, message],
-                        unread: message.fromMe ? chat.unread : chat.unread + 1
-                    };
-                })
+                        messages: [...chat.messages, message]
+                    }
+                }
             };
         }
-
-        case "SET_TYPING":
-            return {
-                ...state,
-                chats: state.chats.map(chat => {
-                    if (chat.id !== action.payload.chatId) return chat;
-
-                    const exists = chat.typingUsers.some(
-                        u => u.id === action.payload.user.id
-                    );
-
-                    return exists
-                        ? chat
-                        : {
-                            ...chat,
-                            typingUsers: [...chat.typingUsers, action.payload.user]
-                        };
-                })
-            };
-
-        case "CLEAR_TYPING":
-            return {
-                ...state,
-                chats: state.chats.map(chat =>
-                    chat.id === action.payload.chatId
-                        ? {
-                            ...chat,
-                            typingUsers: chat.typingUsers.filter(
-                                u => u.id !== action.payload.userId
-                            )
-                        }
-                        : chat
-                )
-            };
-
-        case "SET_MODE":
-            return {
-                ...state,
-                mode: action.payload
-            };
 
         default:
             return state;
