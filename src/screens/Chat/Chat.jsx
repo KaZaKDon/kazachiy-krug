@@ -1,114 +1,72 @@
-import { useReducer, useEffect } from "react";
-import ChatList from "./ChatList";
-import ChatView from "./ChatView";
+import { useReducer, useMemo } from "react";
 import { chatReducer, initialState } from "./chatReducer";
 import { useChatSocket } from "./hooks/useChatSocket";
-import { socket } from "../../shared/socket";
-import "./chat.css";
+import UserList from "./components/UserList";
+import ChatWindow from "./components/ChatWindow";
 
-const FIXED_CHAT_ID = "room-1";
+export default function Chat({ currentUser }) {
+    const [state, dispatch] = useReducer(chatReducer, {
+        ...initialState,
+        activeChatUserId: null,
+        chats: {}
+    });
 
-export default function Chat() {
-    const CURRENT_USER = {
-        id: "user-1",
-        name: "Казак"
-    };
+    const { users, chats, activeChatUserId } = state;
 
-    const [state, dispatch] = useReducer(chatReducer, initialState);
 
-    // создаём чат ОДИН раз
-    useEffect(() => {
-        if (state.chats.length === 0) {
-            dispatch({
-                type: "CREATE_CHAT",
-                payload: {
-                    id: FIXED_CHAT_ID,
-                    title: "Общий чат",
-                    type: "group"
-                }
-            });
-        }
-    }, [state.chats.length]);
+    // 🔹 вычисляем chatId (1-на-1)
+    const chatId = useMemo(() => {
+        if (!activeChatUserId) return null;
+        return [currentUser.id, activeChatUserId].sort().join("_");
+    }, [currentUser.id, activeChatUserId]);
 
-    const activeChat = state.chats.find(
-        chat => chat.id === state.activeChatId
-    );
+    // 🔹 сокет (ВСЕГДА)
+    useChatSocket(dispatch, currentUser, chatId);
 
-    useChatSocket(dispatch, CURRENT_USER);
+    const activeChat = chatId ? chats[chatId] : null;
 
     const sendMessage = (text) => {
-        const messageId = crypto.randomUUID();
+        if (!chatId) return;
 
-        const message = {
-            id: messageId,
-            chatId: FIXED_CHAT_ID,
-            text,
-            sender: {
-                id: CURRENT_USER.id,
-                name: CURRENT_USER.name
-            }
-        };
-
-        // оптимистичное добавление
         dispatch({
             type: "RECEIVE_MESSAGE",
             payload: {
-                chatId: FIXED_CHAT_ID,
+                chatId,
                 message: {
-                    ...message,
+                    id: crypto.randomUUID(),
+                    chatId,
+                    text,
+                    senderId: currentUser.id,
                     fromMe: true,
                     status: "sent"
                 }
             }
         });
-
-        socket.emit("message:send", message);
     };
-
-    const handleTypingStart = () => {
-        socket.emit("typing:start", {
-            chatId: FIXED_CHAT_ID,
-            userId: CURRENT_USER.id
-        });
-    };
-
-    const handleTypingStop = () => {
-        socket.emit("typing:stop", {
-            chatId: FIXED_CHAT_ID,
-            userId: CURRENT_USER.id
-        });
-    };
-
-    if (!activeChat) return null;
 
     return (
         <div className="chat-layout">
-            <ChatList
-                chats={state.chats}
-                activeChatId={state.activeChatId}
-                onSelect={() => {}}
-                onNewChat={() => {}}
-                onNewGroup={() => {}}
-                onTogglePin={() => {}}
-                onToggleMute={() => {}}
+            <UserList
+                users={users.filter(u => u.id !== currentUser.id)}
+                activeUserId={activeChatUserId}
+                onSelect={(userId) =>
+                    dispatch({
+                        type: "SET_ACTIVE_CHAT_USER",
+                        payload: userId
+                    })
+                }
             />
 
-            <ChatView
+            <ChatWindow
                 chat={activeChat}
                 onSend={sendMessage}
-                onTyping={handleTypingStart}
-                onStopTyping={handleTypingStop}
                 onDraftChange={(text) =>
                     dispatch({
                         type: "SET_DRAFT",
-                        payload: {
-                            chatId: FIXED_CHAT_ID,
-                            text
-                        }
+                        payload: { chatId, text }
                     })
                 }
             />
         </div>
     );
 }
-            
