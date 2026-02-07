@@ -24,5 +24,9 @@ export function getUserById(userId) {
 }
 
 export function getUserName(userId) {
+<<<<<<< HEAD
     return usersById[userId]?.name ?? "Наташа";
+=======
+    return usersById[userId]?.name ?? "Собеседник";
+>>>>>>> e776f2ce9223cc25dc5562c1969385dcc0b6c9dd
 }
