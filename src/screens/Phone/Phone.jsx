@@ -9,10 +9,11 @@ export default function Phone() {
     const phoneRef = useRef(null);
 
     const handleSubmit = () => {
+
         const phone = phoneRef.current?.value?.trim();
         if (!phone) return;
+        sessionStorage.setItem("phone", phone);
 
-        localStorage.setItem("phone", phone);
         navigate("/code");
     };
 

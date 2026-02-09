@@ -28,6 +28,25 @@ function ensureChat(state, chatId) {
     };
 }
 
+function updateMessageStatus(chat, messageId, status) {
+    if (!chat) return chat;
+
+    const messages = chat.messages.map((message) => {
+        if (message.id !== messageId) return message;
+        if (message.status === status) return message;
+        return {
+            ...message,
+            status
+        };
+    });
+
+    return {
+        ...chat,
+        messages
+    };
+}
+
+
 export function chatReducer(state, action) {
     switch (action.type) {
 
@@ -105,6 +124,23 @@ export function chatReducer(state, action) {
                 }
             };
         }
+
+        case "UPDATE_MESSAGE_STATUS": {
+            const { chatId, messageId, status } = action.payload;
+            if (!chatId || !messageId || !status) return state;
+
+            const chats = ensureChat(state, chatId);
+            const chat = chats[chatId];
+
+            return {
+                ...state,
+                chats: {
+                    ...chats,
+                    [chatId]: updateMessageStatus(chat, messageId, status)
+                }
+            };
+        }
+
 
         default:
             return state;

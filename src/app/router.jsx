@@ -10,7 +10,7 @@ export default function AppRouter({ currentUser, setCurrentUser }) {
     const isAuth = Boolean(currentUser?.id);
     const hasPhone = (() => {
         try {
-            return Boolean(localStorage.getItem("phone"));
+            return Boolean(sessionStorage.getItem("phone"));
         } catch {
             return false;
         }

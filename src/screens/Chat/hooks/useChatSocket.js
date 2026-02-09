@@ -80,12 +80,49 @@ export function useChatSocket(
                     message
                 }
             });
+
+            if (
+                message.chatId === activeChatId
+                && message.senderId !== currentUser.id
+            ) {
+                socket.emit("message:read", {
+                    chatId: message.chatId,
+                    messageId: message.id
+                });
+            }
+        };
+
+        const onDelivered = ({ chatId, messageId }) => {
+            dispatch({
+                type: "UPDATE_MESSAGE_STATUS",
+                payload: {
+                    chatId,
+                    messageId,
+                    status: "delivered"
+                }
+            });
+        };
+
+        const onRead = ({ chatId, messageId }) => {
+            dispatch({
+                type: "UPDATE_MESSAGE_STATUS",
+                payload: {
+                    chatId,
+                    messageId,
+                    status: "read"
+                }
+            });
         };
 
         socket.on("message:new", onMessage);
+        socket.on("message:delivered", onDelivered);
+        socket.on("message:read", onRead);
 
         return () => {
             socket.off("message:new", onMessage);
+            socket.off("message:delivered", onDelivered);
+            socket.off("message:read", onRead);
         };
     }, [activeChatId, currentUser?.id, dispatch]);
 }
+

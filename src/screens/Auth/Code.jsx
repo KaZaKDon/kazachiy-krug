@@ -16,7 +16,7 @@ export default function Code({ setCurrentUser }) {
             console.log("✅ AUTH SUCCESS:", user);
 
             setCurrentUser(user);
-            localStorage.setItem("currentUser", JSON.stringify(user));
+            sessionStorage.setItem("currentUser", JSON.stringify(user));
 
             navigate("/chat");
         };
@@ -35,7 +35,7 @@ export default function Code({ setCurrentUser }) {
     }, [navigate, setCurrentUser]);
 
     const handleConfirm = () => {
-        const phone = localStorage.getItem("phone");
+        const phone = sessionStorage.getItem("phone");
         const socket = connectSocket();
 
         console.log("📤 SEND AUTH PHONE:", phone);
