@@ -23,7 +23,8 @@ function ensureChat(state, chatId) {
         [chatId]: {
             id: chatId,
             messages: [],
-            draft: ""
+            draft: "",
+            typingUsers: []
         }
     };
 }
@@ -75,11 +76,13 @@ export function chatReducer(state, action) {
                     ...chats,
                     [chatId]: {
                         ...chats[chatId],
-                        messages
+                        messages,
+                        typingUsers: chats[chatId].typingUsers ?? []
                     }
                 }
             };
         }
+
 
 
         // ---------- DRAFT ----------
@@ -140,6 +143,65 @@ export function chatReducer(state, action) {
                 }
             };
         }
+
+        case "UPDATE_USER_STATUS": {
+            const { userId, isOnline } = action.payload;
+            if (!userId) return state;
+
+            return {
+                ...state,
+                users: state.users.map((user) =>
+                    user.id === userId
+                        ? { ...user, isOnline: Boolean(isOnline) }
+                        : user
+                )
+            };
+        }
+
+        case "SET_TYPING": {
+            const { chatId, userId } = action.payload;
+            if (!chatId || !userId) return state;
+
+            const chats = ensureChat(state, chatId);
+            const chat = chats[chatId];
+            const typingUsers = chat.typingUsers ?? [];
+
+            if (typingUsers.includes(userId)) return state;
+
+            return {
+                ...state,
+                chats: {
+                    ...chats,
+                    [chatId]: {
+                        ...chat,
+                        typingUsers: [...typingUsers, userId]
+                    }
+                }
+            };
+        }
+
+        case "CLEAR_TYPING": {
+            const { chatId, userId } = action.payload;
+            if (!chatId || !userId) return state;
+
+            const chats = ensureChat(state, chatId);
+            const chat = chats[chatId];
+            const typingUsers = chat.typingUsers ?? [];
+
+            if (!typingUsers.includes(userId)) return state;
+
+            return {
+                ...state,
+                chats: {
+                    ...chats,
+                    [chatId]: {
+                        ...chat,
+                        typingUsers: typingUsers.filter((id) => id !== userId)
+                    }
+                }
+            };
+        }
+
 
 
         default:

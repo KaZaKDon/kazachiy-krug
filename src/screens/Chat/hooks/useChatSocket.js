@@ -5,7 +5,9 @@ export function useChatSocket(
     dispatch,
     currentUser,
     activeChatUserId,
-    activeChatId
+    activeChatId,
+    activeChatMessages = []
+
 ) {
 
     useEffect(() => {
@@ -124,5 +126,33 @@ export function useChatSocket(
             socket.off("message:read", onRead);
         };
     }, [activeChatId, currentUser?.id, dispatch]);
-}
 
+    useEffect(() => {
+        const socket = getSocket();
+        if (!socket) return;
+        if (!currentUser?.id || !activeChatId) return;
+        if (!activeChatMessages?.length) return;
+
+        activeChatMessages
+            .filter(
+                (message) =>
+                    message.senderId !== currentUser.id &&
+                    message.status !== "read"
+            )
+            .forEach((message) => {
+                socket.emit("message:read", {
+                    chatId: activeChatId,
+                    messageId: message.id
+                });
+
+                dispatch({
+                    type: "UPDATE_MESSAGE_STATUS",
+                    payload: {
+                        chatId: activeChatId,
+                        messageId: message.id,
+                        status: "read"
+                    }
+                });
+            });
+    }, [activeChatId, activeChatMessages, currentUser?.id, dispatch]);
+}

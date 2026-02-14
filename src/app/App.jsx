@@ -2,18 +2,25 @@ import {  useEffect,useState } from "react";
 import AppRouter from "./router";
 
 import { connectSocket } from "../shared/socket";
-
-
 export default function App() {
     const [currentUser, setCurrentUser] = useState(() => {
         try {
-            const raw = localStorage.getItem("currentUser");
+            const raw = sessionStorage.getItem("currentUser");
             return raw ? JSON.parse(raw) : null;
         } catch {
             sessionStorage.removeItem("currentUser");
             return null;
         }
     });
+    const [phone, setPhone] = useState(() => {
+        try {
+            return sessionStorage.getItem("phone") ?? "";
+        } catch {
+            sessionStorage.removeItem("phone");
+            return "";
+        }
+    });
+
 
     useEffect(() => {
         try {
@@ -26,6 +33,19 @@ export default function App() {
             // ignore storage errors
         }
     }, [currentUser]);
+
+    useEffect(() => {
+        try {
+            if (phone) {
+                sessionStorage.setItem("phone", phone);
+            } else {
+                sessionStorage.removeItem("phone");
+            }
+        } catch {
+            // ignore storage errors
+        }
+    }, [phone]);
+
 
     useEffect(() => {
         if (!currentUser?.id) return;
@@ -42,6 +62,8 @@ export default function App() {
             <AppRouter
                 currentUser={currentUser}
                 setCurrentUser={setCurrentUser}
+                phone={phone}
+                setPhone={setPhone}
             />
         </div>
     );

@@ -1,7 +1,7 @@
-import { useEffect, useReducer } from "react";
+import { useReducer } from "react";
 import { chatReducer, initialState } from "./chatReducer";
 import { useChatSocket } from "./hooks/useChatSocket";
-import UserList from "./components/UserList";
+import DialogList from "./components/DialogList";
 import ChatWindow from "./components/ChatWindow";
 import { getSocket } from "../../shared/socket";
 
@@ -17,21 +17,17 @@ export default function Chat({ currentUser }) {
 
     const { users, chats, activeChatUserId, activeChatId } = state;
 
-    useEffect(() => {
-        if (activeChatUserId) return;
-        const firstUser = users.find(user => user.id !== currentUser.id);
-        if (!firstUser) return;
-        dispatch({
-            type: "SET_ACTIVE_CHAT_USER",
-            payload: firstUser.id
-        });
-    }, [activeChatUserId, currentUser.id, users]);
-
+    const activeChat = activeChatId ? chats[activeChatId] : null;
 
     // 🔹 сокет (ВСЕГДА)
-    useChatSocket(dispatch, currentUser, activeChatUserId, activeChatId);
+    useChatSocket(
+        dispatch,
+        currentUser,
+        activeChatUserId,
+        activeChatId,
+        activeChat?.messages ?? []
+    );
 
-    const activeChat = activeChatId ? chats[activeChatId] : null;
 
     const sendMessage = (text) => {
         if (!activeChatId) return;
@@ -50,6 +46,7 @@ export default function Chat({ currentUser }) {
         socket.emit("message:send", message);
 
 
+
         dispatch({
             type: "RECEIVE_MESSAGE",
             payload: {
@@ -59,22 +56,45 @@ export default function Chat({ currentUser }) {
         });
     };
 
+    const startTyping = () => {
+        if (!activeChatId) return;
+        const socket = getSocket();
+        if (!socket) return;
+
+        socket.emit("typing:start", { chatId: activeChatId });
+    };
+
+    const stopTyping = () => {
+        if (!activeChatId) return;
+        const socket = getSocket();
+        if (!socket) return;
+
+        socket.emit("typing:stop", { chatId: activeChatId });
+    };
+
+
     return (
         <div className="chat-layout">
-            <UserList
-                users={users.filter(u => u.id !== currentUser.id)}
+            <DialogList
+                currentUserId={currentUser.id}
+                users={users.filter((user) => user.id !== currentUser.id)}
+                chats={chats}
                 activeUserId={activeChatUserId}
-                onSelect={(userId) =>
+                onSelect={(userId) => {
+                    stopTyping();
                     dispatch({
                         type: "SET_ACTIVE_CHAT_USER",
                         payload: userId
                     })
-                }
+                }}
             />
 
             <ChatWindow
                 chat={activeChat}
+                activeUser={users.find((user) => user.id === activeChatUserId) ?? null}
+                hasSelectedChat={Boolean(activeChatUserId)}
                 currentUserId={currentUser.id}
+
                 onSend={sendMessage}
                 onDraftChange={(text) =>
                     dispatch({
@@ -82,6 +102,9 @@ export default function Chat({ currentUser }) {
                         payload: { chatId: activeChatId, text }
                     })
                 }
+                onTypingStart={startTyping}
+                onTypingStop={stopTyping}
+
             />
         </div>
     );
