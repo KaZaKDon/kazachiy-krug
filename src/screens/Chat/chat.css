@@ -3,6 +3,23 @@
     height: 100vh;
 }
 
+.messages,
+.bubble,
+.chat-input textarea,
+.dialog-name,
+.dialog-preview {
+    font-family:
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Noto Color Emoji",
+        sans-serif;
+}
+
 /* ===== SIDEBAR ===== */
 .chat-sidebar {
     width: 80px;
@@ -58,7 +75,7 @@
 }
 
 .chat-header {
-    padding: 14px 16px;;
+    padding: 14px 16px;
     border-bottom: 1px solid #ddd;
     display: flex;
     justify-content: space-between;
@@ -98,7 +115,6 @@
     color: #7a7a7a;
 }
 
-
 .chat-messages {
     flex: 1;
     padding: 12px;
@@ -110,6 +126,75 @@
     padding: 10px;
     border-top: 1px solid #ddd;
     align-items: flex-end;
+}
+
+.chat-input-left {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+}
+
+/* Кнопка открытия панели */
+.emoji-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+    color: var(--color-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emoji-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.emoji-btn:hover:not(:disabled) {
+    background: #f7f5f2;
+}
+
+/* Панель эмодзи как popover */
+.emoji-panel {
+    position: absolute;
+    bottom: 46px;
+    left: 0;
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    z-index: 20;
+
+    display: grid;
+    grid-template-columns: repeat(8, 34px);
+    gap: 8px;
+}
+
+/* Элемент эмодзи — без бордовой заливки */
+.emoji-item {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emoji-item:hover {
+    background: #f0ece7;
+}
+
+.emoji-item:active {
+    transform: scale(0.96);
 }
 
 .chat-input textarea {
@@ -144,7 +229,6 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-
 }
 
 .messages {
@@ -189,6 +273,7 @@
     padding: 6px 8px;
     font-size: 16px;
 }
+
 .message-status {
     font-size: 12px;
     opacity: 0.6;
@@ -207,6 +292,30 @@
 .message-status.read {
     color: #b973f1;
     opacity: 1;
+}
+
+.message-image {
+    max-width: 260px;
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.draft-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    background: var(--bg-card);
+    margin: 8px 0;
+}
+
+.draft-preview img {
+    max-height: 64px;
+    border-radius: 10px;
 }
 
 .chat-preview {
@@ -228,6 +337,7 @@
     font-size: 12px;
     color: #4caf50;
 }
+
 .chat-typing {
     font-size: 12px;
     color: #888;
@@ -300,7 +410,6 @@
     background: #bbb;
 }
 
-
 .chat-empty-placeholder {
     margin: auto;
     color: #777;
@@ -312,7 +421,6 @@
     color: #888;
     font-size: 13px;
 }
-
 
 .dialog-list {
     width: 320px;
@@ -443,4 +551,260 @@
     color: #666;
     font-size: 22px;
     cursor: pointer;
+}
+
+.announce {
+    padding: 12px;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-main);
+}
+
+.announce-head {
+    margin-bottom: 10px;
+}
+
+.announce-title {
+    font-weight: 700;
+}
+
+.announce-sub {
+    color: var(--color-muted);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.announce-form {
+    display: grid;
+    gap: 10px;
+}
+
+.announce-field input,
+.announce-field textarea {
+    width: 100%;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 10px;
+    background: var(--bg-card);
+    color: var(--color-primary);
+}
+
+.announce-label {
+    font-size: 12px;
+    color: var(--color-muted);
+    margin-bottom: 6px;
+}
+
+.announce-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.announce-photo {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+    aspect-ratio: 1 / 1;
+}
+
+.announce-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.announce-photo-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    border: 0;
+    border-radius: 10px;
+    padding: 4px 8px;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+}
+
+.announce-photo-add {
+    border: 1px dashed var(--border-light);
+    border-radius: 12px;
+    background: var(--bg-card);
+    cursor: pointer;
+    padding: 10px;
+    aspect-ratio: 1 / 1;
+}
+
+.announce-send {
+    border: 0;
+    border-radius: 14px;
+    padding: 12px;
+    cursor: pointer;
+    background: var(--color-accent);
+    color: #fff;
+}
+
+/* =========================
+   ОБЪЯВЛЕНИЕ — КАРТОЧКА
+   ========================= */
+
+.announce-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 12px 16px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border-light);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.announce-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.announce-card.mine {
+    border-left: 4px solid var(--color-accent);
+}
+
+.announce-card.other {
+    border-left: 4px solid #d0d0d0;
+}
+
+/* ----- header ----- */
+
+.announce-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.announce-card-author {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.announce-card-time {
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
+/* ----- images ----- */
+
+.announce-card-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.announce-card-image {
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.announce-card-image:hover {
+    transform: scale(1.03);
+}
+
+/* ----- text ----- */
+
+.announce-card-text {
+    white-space: pre-line;
+    line-height: 1.5;
+    color: var(--color-primary);
+    font-size: 14px;
+}
+
+/* ----- actions ----- */
+
+.announce-card-actions {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.announce-card-btn {
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.announce-card-btn:hover {
+    background: #642222;
+    transform: translateY(-1px);
+}
+
+.announce-card-btn:active {
+    transform: translateY(0);
+}
+
+/* =========================
+   CTA КНОПКА ВНИЗУ ГРУППЫ
+   ========================= */
+
+.announce-cta {
+    padding: 16px;
+    background: linear-gradient(to top, #ffffff 70%, transparent);
+    position: sticky;
+    bottom: 0;
+}
+
+.announce-cta-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    background: var(--color-accent);
+    color: #fff;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.announce-cta-btn:hover {
+    background: #642222;
+    transform: translateY(-1px);
+}
+
+.announce-cta-btn:active {
+    transform: translateY(0);
+}
+
+/* =========================
+   ЭКРАН ФОРМЫ
+   ========================= */
+
+.announce-screen {
+    padding: 16px;
+}
+
+.announce-screen-top {
+    margin-bottom: 12px;
+}
+
+.announce-back {
+    background: none;
+    border: none;
+    color: var(--color-accent);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.announce-back:hover {
+    text-decoration: underline;
 }

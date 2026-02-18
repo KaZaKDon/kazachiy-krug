@@ -1,5 +1,15 @@
 import { useMemo, useState } from "react";
 
+function isGroupId(id) {
+    return typeof id === "string" && id.startsWith("group-");
+}
+
+function getGroupNumber(id) {
+    // group-10 -> 10
+    const num = Number(String(id).split("-")[1]);
+    return Number.isFinite(num) ? num : Number.MAX_SAFE_INTEGER;
+}
+
 function getPrivateChatId(currentUserId, targetUserId) {
     return `room-${[currentUserId, targetUserId].sort().join("-")}`;
 }
@@ -9,7 +19,7 @@ function formatTime(timestamp) {
 
     return new Date(timestamp).toLocaleTimeString([], {
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
     });
 }
 
@@ -18,7 +28,7 @@ export default function DialogList({
     users,
     chats,
     activeUserId,
-    onSelect
+    onSelect,
 }) {
     const [query, setQuery] = useState("");
 
@@ -31,29 +41,46 @@ export default function DialogList({
                 return user.name.toLowerCase().includes(normalizedQuery);
             })
             .map((user) => {
-                const chatId = getPrivateChatId(currentUserId, user.id);
+                const group = isGroupId(user.id);
+
+                // ✅ ВАЖНО:
+                // - для группы chatId = group-id
+                // - для лички chatId = room-user-user
+                const chatId = group ? user.id : getPrivateChatId(currentUserId, user.id);
+
                 const chat = chats[chatId];
                 const messages = chat?.messages ?? [];
                 const lastMessage = messages[messages.length - 1] ?? null;
 
                 const unread = messages.filter(
                     (message) =>
-                        message.senderId !== currentUserId &&
-                        message.status !== "read"
+                        message.senderId !== currentUserId && message.status !== "read"
                 ).length;
 
                 return {
                     user,
                     chatId,
+                    isGroup: group,
+                    groupOrder: group ? getGroupNumber(user.id) : null,
                     lastText: lastMessage?.text ?? "Нет сообщений",
                     isEmpty: messages.length === 0,
                     lastMessageAt: lastMessage?.createdAt ?? 0,
                     lastTime: formatTime(lastMessage?.createdAt),
-                    unread
+                    unread,
                 };
             });
 
         return items.sort((a, b) => {
+            // 1) Группы всегда сверху
+            if (a.isGroup && !b.isGroup) return -1;
+            if (!a.isGroup && b.isGroup) return 1;
+
+            // 2) Обе группы — строго по номеру group-N
+            if (a.isGroup && b.isGroup) {
+                return (a.groupOrder ?? 0) - (b.groupOrder ?? 0);
+            }
+
+            // 3) Оба личных — твоя старая логика
             if (a.lastMessageAt !== b.lastMessageAt) {
                 return b.lastMessageAt - a.lastMessageAt;
             }
@@ -79,7 +106,8 @@ export default function DialogList({
             {dialogItems.map(({ user, unread, lastText, lastTime, isEmpty }) => (
                 <div
                     key={user.id}
-                    className={`dialog-card ${user.id === activeUserId ? "active" : ""} ${isEmpty ? "empty" : ""}`}
+                    className={`dialog-card ${user.id === activeUserId ? "active" : ""} ${isEmpty ? "empty" : ""
+                        }`}
                     onClick={() => onSelect(user.id)}
                 >
                     <div className="dialog-card-top">
@@ -94,12 +122,8 @@ export default function DialogList({
 
                     <div className="dialog-card-bottom">
                         <span className="dialog-preview">{lastText}</span>
-                        {isEmpty ? (
-                            <span className="dialog-empty-badge">Пустой чат</span>
-                        ) : null}
-                        {unread > 0 ? (
-                            <span className="dialog-unread">{unread}</span>
-                        ) : null}
+                        {isEmpty ? <span className="dialog-empty-badge">Пустой чат</span> : null}
+                        {unread > 0 ? <span className="dialog-unread">{unread}</span> : null}
                     </div>
                 </div>
             ))}

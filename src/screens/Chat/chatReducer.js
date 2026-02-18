@@ -1,18 +1,8 @@
 export const initialState = {
     users: [],
-
-    chats: {
-        /*
-        chatId: {
-            id: chatId,
-            messages: [],
-            draft: ""
-        }
-        */
-    },
-
+    chats: {},
     activeChatUserId: null,
-    activeChatId: null
+    activeChatId: null,
 };
 
 function ensureChat(state, chatId) {
@@ -22,10 +12,16 @@ function ensureChat(state, chatId) {
         ...state.chats,
         [chatId]: {
             id: chatId,
+            type: chatId?.startsWith?.("group-") ? "group" : "private",
+            title: "",
+            members: [],
+            membersInfo: [],
+            otherUser: null,
+
             messages: [],
             draft: "",
-            typingUsers: []
-        }
+            typingUsers: [],
+        },
     };
 }
 
@@ -35,38 +31,54 @@ function updateMessageStatus(chat, messageId, status) {
     const messages = chat.messages.map((message) => {
         if (message.id !== messageId) return message;
         if (message.status === status) return message;
-        return {
-            ...message,
-            status
-        };
+        return { ...message, status };
     });
 
-    return {
-        ...chat,
-        messages
-    };
+    return { ...chat, messages };
 }
-
 
 export function chatReducer(state, action) {
     switch (action.type) {
-
         // ---------- USERS ----------
         case "SET_USERS":
-            return {
-                ...state,
-                users: action.payload
-            };
+            return { ...state, users: action.payload };
 
         // ---------- ACTIVE CHAT ----------
-        case "SET_ACTIVE_CHAT_USER":
-            return {
-                ...state,
-                activeChatUserId: action.payload
-            };
-        
+        case "SET_ACTIVE_CHAT_USER": {
+            const id = action.payload;
+
+            // ✅ группы: активный чат = group-id сразу
+            if (typeof id === "string" && id.startsWith("group-")) {
+                const chats = ensureChat(state, id);
+
+                // если пользователь-карточка группы в списке users имеет name — заголовок на UI берём оттуда,
+                // поэтому тут title можно не заполнять.
+
+                return {
+                    ...state,
+                    activeChatUserId: id,
+                    activeChatId: id,
+                    chats,
+                };
+            }
+
+            // личка: activeChatId придет из chat:opened
+            return { ...state, activeChatUserId: id };
+        }
+
         case "SET_ACTIVE_CHAT": {
-            const { chatId, messages = [] } = action.payload;
+            const {
+                chatId,
+                messages = [],
+                type,
+                title,
+                members,
+                membersInfo,
+                otherUser,
+            } = action.payload || {};
+
+            if (!chatId) return state;
+
             const chats = ensureChat(state, chatId);
 
             return {
@@ -76,19 +88,22 @@ export function chatReducer(state, action) {
                     ...chats,
                     [chatId]: {
                         ...chats[chatId],
+                        type: type ?? chats[chatId].type ?? "private",
+                        title: title ?? chats[chatId].title ?? "",
+                        members: members ?? chats[chatId].members ?? [],
+                        membersInfo: membersInfo ?? chats[chatId].membersInfo ?? [],
+                        otherUser: otherUser ?? chats[chatId].otherUser ?? null,
+
                         messages,
-                        typingUsers: chats[chatId].typingUsers ?? []
-                    }
-                }
+                        typingUsers: chats[chatId].typingUsers ?? [],
+                    },
+                },
             };
         }
-
-
 
         // ---------- DRAFT ----------
         case "SET_DRAFT": {
             const { chatId, text } = action.payload;
-
             const chats = ensureChat(state, chatId);
 
             return {
@@ -97,9 +112,9 @@ export function chatReducer(state, action) {
                     ...chats,
                     [chatId]: {
                         ...chats[chatId],
-                        draft: text
-                    }
-                }
+                        draft: text,
+                    },
+                },
             };
         }
 
@@ -112,9 +127,7 @@ export function chatReducer(state, action) {
             const chat = chats[chatId];
 
             // защита от дублей
-            if (chat.messages.some(m => m.id === message.id)) {
-                return state;
-            }
+            if (chat.messages.some((m) => m.id === message.id)) return state;
 
             return {
                 ...state,
@@ -122,9 +135,9 @@ export function chatReducer(state, action) {
                     ...chats,
                     [chatId]: {
                         ...chat,
-                        messages: [...chat.messages, message]
-                    }
-                }
+                        messages: [...chat.messages, message],
+                    },
+                },
             };
         }
 
@@ -139,8 +152,8 @@ export function chatReducer(state, action) {
                 ...state,
                 chats: {
                     ...chats,
-                    [chatId]: updateMessageStatus(chat, messageId, status)
-                }
+                    [chatId]: updateMessageStatus(chat, messageId, status),
+                },
             };
         }
 
@@ -151,10 +164,8 @@ export function chatReducer(state, action) {
             return {
                 ...state,
                 users: state.users.map((user) =>
-                    user.id === userId
-                        ? { ...user, isOnline: Boolean(isOnline) }
-                        : user
-                )
+                    user.id === userId ? { ...user, isOnline: Boolean(isOnline) } : user
+                ),
             };
         }
 
@@ -174,9 +185,9 @@ export function chatReducer(state, action) {
                     ...chats,
                     [chatId]: {
                         ...chat,
-                        typingUsers: [...typingUsers, userId]
-                    }
-                }
+                        typingUsers: [...typingUsers, userId],
+                    },
+                },
             };
         }
 
@@ -196,13 +207,11 @@ export function chatReducer(state, action) {
                     ...chats,
                     [chatId]: {
                         ...chat,
-                        typingUsers: typingUsers.filter((id) => id !== userId)
-                    }
-                }
+                        typingUsers: typingUsers.filter((id) => id !== userId),
+                    },
+                },
             };
         }
-
-
 
         default:
             return state;
